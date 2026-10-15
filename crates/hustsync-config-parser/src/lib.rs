@@ -9,8 +9,10 @@ use std::{
 use thiserror::Error;
 use tracing::warn;
 
+mod cron;
 mod mem;
 
+pub use cron::Cron;
 pub use mem::MemBytes;
 
 /// Typed error returned by every public entry-point in this crate.
@@ -298,6 +300,7 @@ pub struct MirrorConfig {
     pub fpsync_options: Option<Vec<String>>,
     pub lsyncd_options: Option<Vec<String>>,
     pub ftpsync_conf: Option<Vec<String>>,
+    pub cron: Option<Cron>,
     pub success_exit_codes: Option<Vec<i32>>,
     pub rsync_success_exit_codes: Option<Vec<i32>>,
     /// Nested child mirrors. Children inherit unset fields from this parent.
@@ -347,6 +350,7 @@ impl Default for MirrorConfig {
             rsync_override: None,
             rsync_override_only: None,
             stage1_profile: None,
+            cron: None,
             memory_limit: None,
             docker_image: None,
             docker_volumes: None,
@@ -449,6 +453,7 @@ struct LenientMirrorConfig {
     fpsync_options: Option<Vec<String>>,
     lsyncd_options: Option<Vec<String>>,
     ftpsync_conf: Option<Vec<String>>,
+    cron: Option<Cron>,
     success_exit_codes: Option<Vec<i32>>,
     rsync_success_exit_codes: Option<Vec<i32>>,
     #[serde(default)]
@@ -485,6 +490,7 @@ impl From<LenientMirrorConfig> for MirrorConfig {
             rsync_override: l.rsync_override,
             rsync_override_only: l.rsync_override_only,
             stage1_profile: l.stage1_profile,
+            cron: l.cron,
             memory_limit: l.memory_limit,
             docker_image: l.docker_image,
             docker_volumes: l.docker_volumes,
@@ -769,6 +775,7 @@ fn merge_from_parent(child: &mut MirrorConfig, parent: &MirrorConfig) {
         rsync_override,
         rsync_override_only,
         stage1_profile,
+        cron,
         memory_limit,
         docker_image,
         docker_volumes,

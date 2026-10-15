@@ -131,6 +131,7 @@ fn worker_config(
             rsync_override: None,
             rsync_override_only: None,
             stage1_profile: None,
+            cron: None,
             memory_limit: None,
             docker_image: None,
             docker_volumes: None,
