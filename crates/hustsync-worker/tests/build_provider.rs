@@ -15,6 +15,6 @@ fn timeout_defaults_to_none() {
         command: Some("true".into()),
         ..MirrorConfig::default()
     };
-    let p = build_provider("m", &m, &WorkerConfig::default()).unwrap();
+    let p = build_provider("m", &m, &WorkerConfig::default(), None).unwrap();
     assert_eq!(p.timeout(), Duration::ZERO);
 }

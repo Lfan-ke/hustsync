@@ -41,6 +41,7 @@ fn spawn(
             env: HashMap::new(),
             is_master: true,
             success_exit_codes: vec![],
+            runner: Default::default(),
         },
         command: command.into(),
         fail_on_match: None,
