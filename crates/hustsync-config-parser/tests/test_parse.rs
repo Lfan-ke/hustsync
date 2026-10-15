@@ -107,7 +107,7 @@ use_ipv4 = true
         assert_eq!(mirror.use_ipv4, Some(true));
     }
 
-    /// track-B hooks (cgroup/docker/zfs/btrfs) must
+    /// track-B hooks (zfs/btrfs) must
     /// error at parse time, never silently accepted. `deny_unknown_fields`
     /// on `MirrorConfig` is what enforces this; the test pins the
     /// rejection so a future struct change that relaxes the guard
@@ -122,7 +122,7 @@ use_ipv4 = true
 name = "m1"
 provider = "rsync"
 upstream = "rsync://example.test/m1/"
-docker_image = "ghcr.io/example/rsync:latest"
+snapshot_path = "/srv/snapshots"
 "#
         )
         .unwrap();
@@ -131,6 +131,46 @@ docker_image = "ghcr.io/example/rsync:latest"
         assert!(
             res.is_err(),
             "unknown track-B field must be rejected at parse, got Ok"
+        );
+    }
+
+    /// `[docker]` and per-mirror `docker_*` fields parse as tunasync writes them.
+    #[test]
+    fn parse_docker_fields() {
+        let mut f = NamedTempFile::new().unwrap();
+        writeln!(
+            f,
+            r#"
+[docker]
+enable = true
+volumes = ["/a:/a"]
+options = ["--init"]
+
+[[mirrors]]
+name = "crates"
+provider = "command"
+command = "true"
+upstream = "https://crates.io"
+docker_image = "panamaxrs/panamax"
+docker_volumes = ["/b:/b"]
+docker_options = ["--entrypoint="]
+memory_limit = "256M"
+"#
+        )
+        .unwrap();
+
+        let cfg: WorkerConfig = hustsync_config_parser::parse_config(f.path()).unwrap();
+        let docker = cfg.docker.unwrap();
+        assert_eq!(docker.enable, Some(true));
+        assert_eq!(docker.volumes, Some(vec!["/a:/a".into()]));
+        assert_eq!(docker.options, Some(vec!["--init".into()]));
+        let m = &cfg.mirrors.unwrap()[0];
+        assert_eq!(m.docker_image.as_deref(), Some("panamaxrs/panamax"));
+        assert_eq!(m.docker_volumes, Some(vec!["/b:/b".into()]));
+        assert_eq!(m.docker_options, Some(vec!["--entrypoint=".into()]));
+        assert_eq!(
+            m.memory_limit,
+            Some(hustsync_config_parser::MemBytes(256 << 20))
         );
     }
 
@@ -204,7 +244,7 @@ dangerous_global_rsync_success_exit_codes = [0, 1, 23]
             r#"
 [[mirrors]]
 name = "archlinux"
-docker_image = "ghcr.io/example/rsync:latest"
+snapshot_path = "/srv/snapshots"
 "#
         )
         .unwrap();
@@ -231,7 +271,7 @@ docker_image = "ghcr.io/example/rsync:latest"
             r#"
 [[mirrors]]
 name = "archlinux"
-docker_image = "ghcr.io/example/rsync:latest"
+snapshot_path = "/srv/snapshots"
 "#
         )
         .unwrap();
