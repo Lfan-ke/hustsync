@@ -830,6 +830,7 @@ dependencies = [
 name = "hustsync-config-parser"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "glob",
  "regex",
  "serde",
