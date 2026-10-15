@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 
-use chrono::DateTime;
-use chrono::Utc;
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+
+/// Go's zero `time.Time`, 0001-01-01T00:00:00Z; the frontend shows it as N/A.
+pub const ZERO_TIME: DateTime<Utc> = match NaiveDate::from_ymd_opt(1, 1, 1) {
+    Some(d) => d.and_time(NaiveTime::MIN).and_utc(),
+    None => DateTime::<Utc>::MIN_UTC,
+};
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
