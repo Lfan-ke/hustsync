@@ -24,6 +24,7 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | `name` | 空 | worker 名，manager 以它区分 worker |
 | `log_dir` | `/tmp/hustsync/log/{{.Name}}` | 日志目录，`{{.Name}}` 替换为镜像名 |
 | `log_retention` | 10 | 每个镜像保留的日志文件数，含本次 |
+| `log_gzip` | `false` | 轮转时把保留的旧日志压成 `.gz` |
 | `mirror_dir` | `/tmp/hustsync` | 镜像数据根目录，镜像目录为 `mirror_dir/mirror_subdir/镜像名` |
 | `concurrent` | 10 | 同时同步的镜像数 |
 | `interval` | 120 | 同步间隔，分钟 |
@@ -91,7 +92,7 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | `upstream` | 空 | 上游地址；rsync 类必须以 `/` 结尾 |
 | `interval` `retry` `timeout` | 取 global | 同 global |
 | `cron` | 无 | 按 cron 表达式排期，如 `0 */6 * * *`，取代 `interval`；本地时区 |
-| `log_retention` | 取 global | 同 global |
+| `log_retention` `log_gzip` | 取 global | 同 global |
 | `mirror_dir` | 无 | 直接指定镜像目录，忽略 `mirror_subdir` |
 | `mirror_subdir` | 无 | 镜像目录的中间一级 |
 | `log_dir` | 取 global | 同 global |
@@ -149,3 +150,4 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | 新 provider | 无 | `fpsync`、`lsyncd`、`ftpsync` |
 | 排期 | 只有 `interval` | 另可用 `cron` |
 | 日志份数 | 固定 10 | `log_retention` 可调 |
+| 旧日志压缩 | 无 | `log_gzip` |
