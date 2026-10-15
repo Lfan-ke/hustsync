@@ -300,3 +300,18 @@ fn reject_reason_mentions_trailing_slash() {
         panic!("expected InvalidValue");
     }
 }
+
+#[test]
+fn ftpsync_upstream_names_host_and_path() {
+    for (upstream, ok) in [
+        ("rsync://ftp.debian.org/debian/", true),
+        ("ftp.debian.org::debian", true),
+        ("/srv/debian", false),
+        ("rsync://ftp.debian.org/", false),
+    ] {
+        let mut m = named_rsync_mirror("debian", upstream);
+        m.provider = Some("ftpsync".into());
+        let res = validate_worker_config(&worker_with_single_mirror(m));
+        assert_eq!(res.is_ok(), ok, "{upstream}: {res:?}");
+    }
+}
