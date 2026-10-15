@@ -315,3 +315,13 @@ fn ftpsync_upstream_names_host_and_path() {
         assert_eq!(res.is_ok(), ok, "{upstream}: {res:?}");
     }
 }
+
+#[test]
+fn zero_log_retention_is_rejected() {
+    let mut mirror = named_rsync_mirror("arch", "rsync://mirror.example.org/archlinux/");
+    mirror.log_retention = Some(0);
+    let err = validate_worker_config(&worker_with_single_mirror(mirror)).unwrap_err();
+    assert!(
+        matches!(err, ConfigError::InvalidValue { ref field, .. } if field.ends_with("log_retention"))
+    );
+}
