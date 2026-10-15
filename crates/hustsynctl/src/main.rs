@@ -70,31 +70,31 @@ fn box_err(e: hustsync_internal::InternalError) -> anyhow::Error {
 #[command(about = "control client for hustsync manager", version)]
 struct Cli {
     /// Read configuration from FILE
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     config: Option<String>,
 
     /// The manager server address
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     manager: Option<String>,
 
     /// The manager server port
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     port: Option<u16>,
 
     /// Trust root CA cert file CERT
-    #[arg(long)]
+    #[arg(long, global = true)]
     ca_cert: Option<String>,
 
     /// Force HTTPS connection
-    #[arg(long)]
+    #[arg(long, global = true)]
     https: bool,
 
     /// Enable verbosely logging
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     verbose: bool,
 
     /// Enable trace-level logging
-    #[arg(long)]
+    #[arg(long, global = true)]
     debug: bool,
 
     #[command(subcommand)]
@@ -627,5 +627,27 @@ async fn send_cmd(
             "Failed to correctly send command: HTTP status code is not 200: {}",
             err_text
         )
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::panic)]
+mod tests {
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn flags_may_follow_the_subcommand_like_tunasynctl() {
+        for args in [
+            &["hustsynctl", "workers", "-p", "12345"][..],
+            &["hustsynctl", "list", "-p", "12345", "w1"],
+            &["hustsynctl", "start", "-p", "12345", "-w", "w1", "m"],
+            &["hustsynctl", "reload", "-p", "12345", "-w", "w1"],
+            &["hustsynctl", "flush", "-p", "12345"],
+            &["hustsynctl", "-p", "12345", "workers"],
+        ] {
+            let cli = Cli::try_parse_from(args).unwrap_or_else(|e| panic!("{args:?}: {e}"));
+            assert_eq!(cli.port, Some(12345), "{args:?}");
+        }
     }
 }
