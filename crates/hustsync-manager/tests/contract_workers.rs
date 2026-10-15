@@ -523,3 +523,32 @@ async fn update_schedules_empty_name_rejected() {
         "error envelope must contain an 'error' string field"
     );
 }
+
+/// A mirror that never succeeded keeps zero times, which the frontend shows as N/A.
+#[tokio::test]
+async fn first_failure_keeps_zero_times() {
+    const ZERO_TS: i64 = -62_135_596_800;
+    let (app, _dir) = contract::spawn_manager();
+    let app = setup_worker(app, "w").await;
+    let later = "2030-01-01T00:00:00Z";
+    let body = json!({
+        "name": "m", "worker": "w", "upstream": "", "size": "", "error_msg": "boom",
+        "last_update": later, "last_started": later, "last_ended": later, "next_schedule": later,
+        "status": "failed", "is_master": true
+    });
+    assert_eq!(
+        update_job(app.clone(), "w", "m", body).await.status(),
+        StatusCode::OK
+    );
+
+    let resp = app
+        .oneshot(Request::builder().uri("/jobs").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let jobs = contract::body_json(resp).await;
+    let m = &jobs[0];
+    assert_eq!(m["last_update_ts"], ZERO_TS, "{m}");
+    assert_eq!(m["last_started_ts"], ZERO_TS, "{m}");
+    let ended = m["last_ended_ts"].as_i64().unwrap();
+    assert!(ended > 0 && ended < 1_893_456_000, "{m}");
+}

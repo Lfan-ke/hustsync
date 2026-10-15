@@ -2,7 +2,7 @@
 
 use chrono::Utc;
 use hustsync_config_parser::WorkerConfig;
-use hustsync_internal::msg::WorkerStatus;
+use hustsync_internal::msg::{WorkerStatus, ZERO_TIME};
 use hustsync_internal::status::SyncStatus;
 use reqwest::Client;
 use std::collections::HashMap;
@@ -616,23 +616,18 @@ impl Worker {
                     continue;
                 };
 
-                // Skip Failed reports for paused/disabled jobs (mirrors Go behaviour).
-                {
-                    let jobs = jobs_handle.read().await;
-                    if let Some(job) = jobs.get(&msg.name) {
-                        let state = job.state();
-                        if msg.status == hustsync_internal::status::SyncStatus::Failed
-                            && (state == crate::job::STATE_PAUSED
-                                || state == crate::job::STATE_DISABLED)
-                        {
-                            tracing::info!(
-                                "Job {} state is {}, skip reporting Failed status",
-                                msg.name,
-                                state
-                            );
-                            continue;
-                        }
-                    }
+                let state = jobs_handle
+                    .read()
+                    .await
+                    .get(&msg.name)
+                    .map(MirrorJob::state);
+                if matches!(state, Some(job::STATE_PAUSED | job::STATE_DISABLED)) {
+                    tracing::info!(
+                        "Job {} is stopped, skip reporting {:?}",
+                        msg.name,
+                        msg.status
+                    );
+                    continue;
                 }
 
                 let smsg = hustsync_internal::msg::MirrorStatus {
@@ -641,10 +636,10 @@ impl Worker {
                     upstream: msg.upstream.clone(),
                     size: msg.size.clone().unwrap_or_else(|| "unknown".to_string()),
                     error_msg: msg.msg.clone(),
-                    last_update: Utc::now(),
-                    last_started: Utc::now(),
-                    last_ended: Utc::now(),
-                    next_scheduled: Utc::now(),
+                    last_update: ZERO_TIME,
+                    last_started: ZERO_TIME,
+                    last_ended: ZERO_TIME,
+                    next_scheduled: ZERO_TIME,
                     status: msg.status,
                     is_master: msg.is_master,
                 };
