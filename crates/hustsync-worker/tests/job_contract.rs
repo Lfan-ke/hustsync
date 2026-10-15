@@ -8,9 +8,9 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use hustsync_internal::status::SyncStatus;
 use hustsync_worker::{
-    JobMessage,
+    JobMessage, MirrorJob,
     hooks::{HookCtx, HookError, JobHook},
-    job::{CtrlAction, JobActor},
+    job::{CtrlAction, JobActor, STATE_PAUSED},
     provider::{
         CommonProviderConfig,
         cmd_provider::{CmdProvider, CmdProviderConfig},
@@ -19,13 +19,14 @@ use hustsync_worker::{
 use tempfile::TempDir;
 use tokio::sync::{Semaphore, mpsc};
 
-/// Runs `command` once through a job actor and collects reports up to the one that reschedules.
-async fn reports(
+/// A job actor running `command`, sharing a semaphore with `permits` slots.
+fn spawn(
+    dir: &TempDir,
     command: &str,
     retry: u32,
     hooks: Vec<Arc<dyn JobHook>>,
-) -> Vec<(SyncStatus, bool, String)> {
-    let dir = TempDir::new().unwrap();
+    permits: usize,
+) -> (MirrorJob, mpsc::Receiver<JobMessage>, Arc<Semaphore>) {
     let path = |p: &str| dir.path().join(p).to_string_lossy().into_owned();
     let provider = CmdProvider::new(CmdProviderConfig {
         common: CommonProviderConfig {
@@ -36,7 +37,7 @@ async fn reports(
             log_file: path("log/latest.log"),
             interval: Duration::from_secs(3600),
             retry,
-            timeout: Duration::from_secs(30),
+            timeout: Duration::from_secs(60),
             env: HashMap::new(),
             is_master: true,
             success_exit_codes: vec![],
@@ -46,19 +47,31 @@ async fn reports(
         size_pattern: None,
     })
     .unwrap();
-    let (tx, mut rx) = mpsc::channel::<JobMessage>(32);
-    let (job, actor) = JobActor::new(
-        "m".into(),
-        tx,
-        Arc::new(Semaphore::new(1)),
-        Box::new(provider),
-        hooks,
-    );
+    let (tx, rx) = mpsc::channel::<JobMessage>(32);
+    let sem = Arc::new(Semaphore::new(permits));
+    let (job, actor) = JobActor::new("m".into(), tx, Arc::clone(&sem), Box::new(provider), hooks);
     tokio::spawn(actor.run());
-    job.send_ctrl(CtrlAction::Start).await.unwrap();
+    (job, rx, sem)
+}
 
+async fn next(rx: &mut mpsc::Receiver<JobMessage>, secs: u64) -> Option<JobMessage> {
+    tokio::time::timeout(Duration::from_secs(secs), rx.recv())
+        .await
+        .ok()
+        .flatten()
+}
+
+/// Runs `command` once and collects reports up to the one that reschedules.
+async fn reports(
+    command: &str,
+    retry: u32,
+    hooks: Vec<Arc<dyn JobHook>>,
+) -> Vec<(SyncStatus, bool, String)> {
+    let dir = TempDir::new().unwrap();
+    let (job, mut rx, _sem) = spawn(&dir, command, retry, hooks, 1);
+    job.send_ctrl(CtrlAction::Start).await.unwrap();
     let mut seen = vec![];
-    while let Ok(Some(m)) = tokio::time::timeout(Duration::from_secs(10), rx.recv()).await {
+    while let Some(m) = next(&mut rx, 10).await {
         seen.push((m.status, m.schedule, m.msg));
         if m.schedule {
             break;
@@ -107,4 +120,50 @@ async fn failed_pre_job_hook_reports_and_reschedules() {
     assert_eq!((got[0].0, got[0].1), (SyncStatus::PreSyncing, false));
     assert_eq!((got[1].0, got[1].1), (SyncStatus::Failed, true));
     assert!(got[1].2.starts_with("error exec hook pre_job: "), "{got:?}");
+}
+
+#[tokio::test]
+async fn stop_while_waiting_for_a_slot_skips_the_run() {
+    let dir = TempDir::new().unwrap();
+    let (job, mut rx, sem) = spawn(&dir, "true", 1, vec![], 1);
+    let held = Arc::clone(&sem).acquire_owned().await.unwrap();
+    job.send_ctrl(CtrlAction::Start).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    job.send_ctrl(CtrlAction::Stop).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    drop(held);
+    assert!(next(&mut rx, 2).await.is_none());
+    assert_eq!(job.state(), STATE_PAUSED);
+}
+
+#[tokio::test]
+async fn restart_cancels_the_running_sync() {
+    let dir = TempDir::new().unwrap();
+    let (job, mut rx, _sem) = spawn(&dir, "sleep 30", 1, vec![], 1);
+    job.send_ctrl(CtrlAction::Start).await.unwrap();
+    assert_eq!(
+        next(&mut rx, 5).await.unwrap().status,
+        SyncStatus::PreSyncing
+    );
+    assert_eq!(next(&mut rx, 5).await.unwrap().status, SyncStatus::Syncing);
+    job.send_ctrl(CtrlAction::Restart).await.unwrap();
+    assert_eq!(
+        next(&mut rx, 10).await.unwrap().status,
+        SyncStatus::PreSyncing
+    );
+}
+
+#[tokio::test]
+async fn stop_during_sync_reports_nothing() {
+    let dir = TempDir::new().unwrap();
+    let (job, mut rx, _sem) = spawn(&dir, "sleep 30", 1, vec![], 1);
+    job.send_ctrl(CtrlAction::Start).await.unwrap();
+    assert_eq!(
+        next(&mut rx, 5).await.unwrap().status,
+        SyncStatus::PreSyncing
+    );
+    assert_eq!(next(&mut rx, 5).await.unwrap().status, SyncStatus::Syncing);
+    job.send_ctrl(CtrlAction::Stop).await.unwrap();
+    assert!(next(&mut rx, 5).await.is_none());
+    assert_eq!(job.state(), STATE_PAUSED);
 }
