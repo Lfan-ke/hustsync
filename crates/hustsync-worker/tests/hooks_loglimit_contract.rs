@@ -1,4 +1,4 @@
-//! Contract tests for `LogLimitHook` — rotation, symlink, fail rename.
+//! Contract tests for `LogLimitHook`: rotation, symlink, fail rename, gzip.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -174,4 +174,59 @@ async fn post_fail_renames_to_fail_and_updates_symlink() {
     let link = ctx.log_dir.join("latest");
     let target = std::fs::read_link(&link).unwrap();
     assert_eq!(target, failed);
+}
+
+fn names(dir: &std::path::Path) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .filter_map(|e| e.ok()?.file_name().into_string().ok())
+        .filter(|n| n != "latest")
+        .collect();
+    v.sort();
+    v
+}
+
+#[tokio::test]
+async fn gzip_keeps_older_logs_compressed_in_order() {
+    use std::io::Read;
+
+    let tmp = TempDir::new().unwrap();
+    let mut ctx = make_ctx(&tmp, "m1");
+    let now = std::time::SystemTime::now();
+    let ago = |s| now - std::time::Duration::from_secs(s);
+    for (name, secs) in [("a", 10), ("b", 20), ("c", 30), ("d", 40)] {
+        let p = ctx.log_dir.join(format!("m1_{name}.log"));
+        std::fs::write(&p, name).unwrap();
+        let f = std::fs::File::options().write(true).open(&p).unwrap();
+        f.set_modified(ago(secs)).unwrap();
+    }
+    let hook = LogLimitHook::retaining(3).gzip(true);
+
+    hook.pre_exec(&mut ctx).await.unwrap();
+    let fresh = ctx
+        .log_file
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let mut want = vec![
+        "m1_a.log.gz".to_owned(),
+        "m1_b.log.gz".into(),
+        fresh.clone(),
+    ];
+    want.sort();
+    assert_eq!(names(&ctx.log_dir), want);
+
+    let gz = ctx.log_dir.join("m1_a.log.gz");
+    let mut body = String::new();
+    flate2::read::GzDecoder::new(std::fs::File::open(&gz).unwrap())
+        .read_to_string(&mut body)
+        .unwrap();
+    assert_eq!(body, "a");
+    assert_eq!(std::fs::metadata(&gz).unwrap().modified().unwrap(), ago(10));
+
+    hook.pre_exec(&mut ctx).await.unwrap();
+    let mut want = vec![format!("{fresh}.gz"), "m1_a.log.gz".into(), fresh];
+    want.sort();
+    assert_eq!(names(&ctx.log_dir), want, "oldest .gz must go first");
 }
