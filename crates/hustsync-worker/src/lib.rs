@@ -15,6 +15,7 @@ pub mod cgroup;
 pub mod error;
 pub mod hooks;
 pub mod job;
+pub mod metrics;
 pub mod provider;
 pub mod schedule;
 pub mod server;
@@ -187,6 +188,7 @@ pub struct Worker {
     pub manager_rx: Mutex<Option<mpsc::Receiver<JobMessage>>>,
     pub semaphore: Arc<Semaphore>,
     cgroups: Option<Arc<cgroup::Cgroups>>,
+    concurrent: usize,
     pub schedule_queue: Arc<Mutex<ScheduleQueue>>,
     pub exit_token: CancellationToken,
 
@@ -272,6 +274,7 @@ impl Worker {
             manager_rx: Mutex::new(Some(manager_rx)),
             semaphore,
             cgroups,
+            concurrent,
             schedule_queue: Arc::new(Mutex::new(ScheduleQueue::new())),
             exit_token,
             http_client: None,
@@ -545,6 +548,8 @@ impl Worker {
         let app_state = Arc::new(server::AppState {
             jobs: Arc::clone(&self.jobs),
             schedule_queue: Arc::clone(&self.schedule_queue),
+            semaphore: Arc::clone(&self.semaphore),
+            concurrent: self.concurrent,
             reload_tx,
         });
         let app = server::make_http_server(app_state);
