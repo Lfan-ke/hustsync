@@ -84,3 +84,4 @@ hustsynctl workers -p 14242
 - 容器内同步：[docker.md](docker.md)
 - 资源隔离：[cgroup.md](cgroup.md)
 - fpsync 与 lsyncd：[tools.md](tools.md)
+- ftpsync：[ftpsync.md](ftpsync.md)

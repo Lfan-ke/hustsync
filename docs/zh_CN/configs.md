@@ -23,6 +23,7 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 |:--:|:--:|:--:|
 | `name` | 空 | worker 名，manager 以它区分 worker |
 | `log_dir` | `/tmp/hustsync/log/{{.Name}}` | 日志目录，`{{.Name}}` 替换为镜像名 |
+| `log_retention` | 10 | 每个镜像保留的日志文件数，含本次 |
 | `mirror_dir` | `/tmp/hustsync` | 镜像数据根目录，镜像目录为 `mirror_dir/mirror_subdir/镜像名` |
 | `concurrent` | 10 | 同时同步的镜像数 |
 | `interval` | 120 | 同步间隔，分钟 |
@@ -86,9 +87,11 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | 字段 | 默认值 | 说明 |
 |:--:|:--:|:--:|
 | `name` | 必填 | 镜像名 |
-| `provider` | `rsync` | `rsync`、`two-stage-rsync`、`command`、`fpsync`、`lsyncd` |
+| `provider` | `rsync` | `rsync`、`two-stage-rsync`、`command`、`fpsync`、`lsyncd`、`ftpsync` |
 | `upstream` | 空 | 上游地址；rsync 类必须以 `/` 结尾 |
 | `interval` `retry` `timeout` | 取 global | 同 global |
+| `cron` | 无 | 按 cron 表达式排期，如 `0 */6 * * *`，取代 `interval`；本地时区 |
+| `log_retention` | 取 global | 同 global |
 | `mirror_dir` | 无 | 直接指定镜像目录，忽略 `mirror_subdir` |
 | `mirror_subdir` | 无 | 镜像目录的中间一级 |
 | `log_dir` | 取 global | 同 global |
@@ -125,13 +128,14 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | `fail_on_match` | 日志命中该正则即视为失败 |
 | `size_pattern` | 从日志里取镜像大小的正则，取最后一次匹配的第一个分组 |
 
-### docker、fpsync、lsyncd
+### docker、fpsync、lsyncd、ftpsync
 
 | 字段 | 说明 |
 |:--:|:--:|
 | `docker_image` | 容器镜像，见 [docker.md](docker.md) |
 | `docker_volumes` `docker_options` | 追加在 `[docker]` 的设置之后 |
 | `fpsync_options` `lsyncd_options` | 原样传给 fpsync、lsyncd，见 [tools.md](tools.md) |
+| `ftpsync_conf` | 追加到生成的 ftpsync 配置末尾的行，见 [ftpsync.md](ftpsync.md) |
 
 ## 与 tunasync 的差异
 
@@ -142,4 +146,6 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | 环境变量 | `TUNASYNC_*` | `HUSTSYNC_*`，同时提供同值的 `TUNASYNC_*` |
 | docker 容器名 | `tunasync-job-镜像名` | `hustsync-job-镜像名` |
 | 超出 `memory_limit` | 普通失败 | 上报为 OOM |
-| 新 provider | 无 | `fpsync`、`lsyncd` |
+| 新 provider | 无 | `fpsync`、`lsyncd`、`ftpsync` |
+| 排期 | 只有 `interval` | 另可用 `cron` |
+| 日志份数 | 固定 10 | `log_retention` 可调 |
