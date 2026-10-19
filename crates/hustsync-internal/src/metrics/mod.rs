@@ -146,9 +146,34 @@ pub fn process() -> Res<Vec<MetricFamily>> {
     {
         use prometheus::process_collector::ProcessCollector;
         static PROC: std::sync::OnceLock<ProcessCollector> = std::sync::OnceLock::new();
-        out.extend(PROC.get_or_init(ProcessCollector::for_self).collect());
+        let mut fams = PROC.get_or_init(ProcessCollector::for_self).collect();
+        // The collector rounds CPU time down to whole seconds, which keeps an idle service at zero for hours.
+        if let Some(secs) = cpu_seconds()
+            && let Some(f) = fams
+                .iter_mut()
+                .find(|f| f.name() == "process_cpu_seconds_total")
+        {
+            for m in f.mut_metric() {
+                let mut c = prometheus::proto::Counter::default();
+                c.set_value(secs);
+                m.set_counter(c);
+            }
+        }
+        out.extend(fams);
     }
     Ok(out)
+}
+
+/// User and system CPU time of this process, from `/proc/self/stat`.
+#[cfg(target_os = "linux")]
+fn cpu_seconds() -> Option<f64> {
+    // /proc reports in USER_HZ, which the kernel fixes at 100 for every architecture it still supports.
+    const USER_HZ: f64 = 100.0;
+    let stat = std::fs::read_to_string("/proc/self/stat").ok()?;
+    let mut fields = stat.rsplit_once(')')?.1.split_whitespace().skip(11);
+    let utime: f64 = fields.next()?.parse().ok()?;
+    let stime: f64 = fields.next()?.parse().ok()?;
+    Some((utime + stime) / USER_HZ)
 }
 
 #[cfg(test)]
@@ -222,5 +247,22 @@ mod tests {
             fams.iter()
                 .any(|f| f.name() == "process_resident_memory_bytes")
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn cpu_time_keeps_its_fraction() {
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_millis(300) {
+            std::hint::black_box(start.elapsed());
+        }
+        let fams = process().unwrap();
+        let cpu = fams
+            .iter()
+            .find(|f| f.name() == "process_cpu_seconds_total")
+            .unwrap();
+        let secs = cpu.get_metric()[0].get_counter().get_value();
+        assert!(secs > 0.1, "{secs}");
+        assert!((cpu_seconds().unwrap() - secs).abs() < 0.1);
     }
 }
