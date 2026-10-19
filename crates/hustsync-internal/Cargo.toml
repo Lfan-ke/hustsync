@@ -3,6 +3,13 @@ name = "hustsync-internal"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+metrics = ["dep:prometheus", "dep:hustsync-config-parser"]
+push = ["metrics", "dep:tokio"]
+p8s = ["metrics"]
+influx = ["push"]
+otlp = ["push"]
+
 [dependencies]
 chrono = { version = "0.4.42", features = ["serde"] }
 regex = "1.12.2"
@@ -14,7 +21,12 @@ tracing = "0.1.41"
 serlog = { version = "0.1.1", features = ["file", "loki", "mail", "aws-lc-rs", "config", "tracing"] }
 toml = "0.9"
 tracing-subscriber = { version = "0.3.20", default-features = false, features = ["registry", "std"] }
+hustsync-config-parser = { path = "../hustsync-config-parser", optional = true }
+prometheus = { version = "0.14", default-features = false, features = ["process"], optional = true }
+tokio = { version = "1", features = ["rt", "time"], optional = true }
 
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros", "time"] }
 
 [lints]
 workspace = true

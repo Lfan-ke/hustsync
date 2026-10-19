@@ -3,10 +3,17 @@ name = "hustsync-manager"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["p8s", "influx"]
+metrics = ["hustsync-internal/metrics"]
+push = ["metrics", "hustsync-internal/push"]
+p8s = ["metrics", "hustsync-internal/p8s"]
+influx = ["push", "hustsync-internal/influx"]
+otlp = ["push", "hustsync-internal/otlp"]
+
 [dependencies]
 axum = "0.8.8"
 axum-server = { version = "0.8.0", features = ["tls-rustls-no-provider"] }
-prometheus = { version = "0.14", default-features = false }
 chrono = { version = "0.4.43", features = ["serde"] }
 hustsync-config-parser = { path = "../hustsync-config-parser" }
 hustsync-internal = { path = "../hustsync-internal" }
