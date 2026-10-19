@@ -11,9 +11,11 @@ use tracing::warn;
 
 mod cron;
 mod mem;
+mod metrics;
 
 pub use cron::Cron;
 pub use mem::MemBytes;
+pub use metrics::{MetricsConfig, PushConfig, PushFormat};
 
 /// Typed error returned by every public entry-point in this crate.
 ///
@@ -80,6 +82,8 @@ pub struct ManagerConfig {
     /// More log sinks for serlog, beside the console or `--log-file` one.
     #[serde(default)]
     pub log: Option<toml::Table>,
+    #[serde(default)]
+    pub metrics: Option<MetricsConfig>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -135,6 +139,7 @@ pub struct WorkerConfig {
     pub include: Option<IncludeConfig>,
     /// More log sinks for serlog, beside the console or `--log-file` one.
     pub log: Option<toml::Table>,
+    pub metrics: Option<MetricsConfig>,
 }
 
 impl Default for WorkerConfig {
@@ -148,6 +153,7 @@ impl Default for WorkerConfig {
             mirrors: Some(vec![MirrorConfig::default()]),
             include: None,
             log: None,
+            metrics: None,
         }
     }
 }
@@ -421,6 +427,7 @@ struct LenientWorkerConfig {
     mirrors: Option<Vec<LenientMirrorConfig>>,
     include: Option<IncludeConfig>,
     log: Option<toml::Table>,
+    metrics: Option<MetricsConfig>,
 }
 
 // Mirrors LenientWorkerConfig but without deny_unknown_fields so it absorbs
@@ -533,6 +540,7 @@ impl From<LenientWorkerConfig> for WorkerConfig {
                 .map(|mv| mv.into_iter().map(MirrorConfig::from).collect()),
             include: l.include,
             log: l.log,
+            metrics: l.metrics,
         }
     }
 }
