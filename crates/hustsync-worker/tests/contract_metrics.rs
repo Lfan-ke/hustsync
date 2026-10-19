@@ -13,6 +13,7 @@ use http_body_util::BodyExt as _;
 use hustsync_config_parser::MetricsConfig;
 use hustsync_worker::{
     metrics::Metrics,
+    reach::Reach,
     schedule::ScheduleQueue,
     server::{AppState, make_http_server},
 };
@@ -77,7 +78,7 @@ async fn unknown_groups_are_404() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(
         body,
-        "unknown metric group `mirrors`; groups are jobs, process"
+        "unknown metric group `mirrors`; groups are jobs, manager, process"
     );
 }
 
@@ -88,15 +89,47 @@ async fn cached_jobs_keep_their_values() {
         push: Vec::new(),
     };
     let semaphore = Arc::new(Semaphore::new(3));
-    let s = state(Arc::clone(&semaphore), Metrics::new(Some(&cfg)).unwrap());
+    let s = state(
+        Arc::clone(&semaphore),
+        Metrics::new(Some(&cfg), Arc::default()).unwrap(),
+    );
     let (_, before) = get(&s, "/metrics/jobs").await;
     let _held = semaphore.acquire_owned().await.unwrap();
     assert_eq!(get(&s, "/metrics/jobs").await.1, before);
     assert!(
-        Metrics::new(Some(&MetricsConfig {
-            cache: [("job".into(), 1)].into(),
-            push: Vec::new(),
-        }))
+        Metrics::new(
+            Some(&MetricsConfig {
+                cache: [("job".into(), 1)].into(),
+                push: Vec::new(),
+            }),
+            Arc::default()
+        )
         .is_err()
     );
+}
+
+#[tokio::test]
+async fn manager_links_show_outages() {
+    let reach = Arc::new(Reach::default());
+    reach.ok("http://a:14242");
+    reach.fail("http://b:14242", &"connection refused");
+    reach.fail("http://b:14242", &"connection refused");
+    let s = state(
+        Arc::new(Semaphore::new(3)),
+        Metrics::new(None, Arc::clone(&reach)).unwrap(),
+    );
+    let (_, text) = get(&s, "/metrics/manager").await;
+    for line in [
+        r#"hustsync_worker_manager_up{manager="http://a:14242"} 1"#,
+        r#"hustsync_worker_manager_up{manager="http://b:14242"} 0"#,
+        r#"hustsync_worker_manager_failures{manager="http://b:14242"} 2"#,
+    ] {
+        has(&text, line);
+    }
+    assert!(text.contains(
+        r#"hustsync_worker_manager_last_success_timestamp_seconds{manager="http://a:14242"}"#
+    ));
+    assert!(!text.contains(
+        r#"hustsync_worker_manager_last_success_timestamp_seconds{manager="http://b:14242"}"#
+    ));
 }
