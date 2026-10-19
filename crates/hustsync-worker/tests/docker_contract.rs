@@ -55,16 +55,10 @@ fn provider(dir: &TempDir, name: &str, command: &str) -> CmdProvider {
 }
 
 fn container_exists(name: &str) -> bool {
-    let out = std::process::Command::new("docker")
-        .args([
-            "ps",
-            "-aq",
-            "--filter",
-            &format!("name=^{}$", container(name)),
-        ])
+    std::process::Command::new("docker")
+        .args(["container", "inspect", &container(name)])
         .output()
-        .unwrap();
-    !out.stdout.is_empty()
+        .is_ok_and(|o| o.status.success())
 }
 
 #[tokio::test]
@@ -102,8 +96,23 @@ async fn cancel_stops_and_removes_container() {
     };
 
     let run = tokio::spawn(async move { p.run(ctx).await });
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    assert!(container_exists("dk-stop"));
+    for _ in 0..150 {
+        if container_exists("dk-stop") || run.is_finished() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    if run.is_finished() {
+        let log = std::fs::read_to_string(dir.path().join("log/latest.log")).unwrap_or_default();
+        panic!(
+            "run ended before the container started: {:?}\n{log}",
+            run.await
+        );
+    }
+    assert!(
+        container_exists("dk-stop"),
+        "container did not start within 30 s"
+    );
     cancel.cancel();
 
     let res = tokio::time::timeout(Duration::from_secs(20), run)
