@@ -54,3 +54,11 @@ sinks = [
 | `wait` | 第一条到达后等 5 分钟再发，期间的告警合成一封，因此每 5 分钟最多一封；上游整体故障时几十个镜像的告警也只占一封 |
 
 其余键见 serlog 规格的 mail 一节。
+
+## 指标
+
+| 指标 | 含义 |
+|:--:|:--:|
+| `hustsync_mirror_failures{mirror,worker}` | manager 启动以来各镜像连续失败的轮数 |
+| `hustsync_worker_manager_up{manager}` | worker 最近一次请求该 manager 是否成功 |
+| `hustsync_worker_manager_failures{manager}` | 连续失败的请求数 |
