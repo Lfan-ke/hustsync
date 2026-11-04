@@ -67,6 +67,7 @@ promtool test rules deploy/prometheus/rules.test.yml
 | 看板 | 文件 | 用途 |
 |:--:|:--:|:--:|
 | 总览 | `hustsync.json` | 第一屏看全局，往下是各个分项的细节 |
+| 运维 | `hustsync-ops.json` | 只看运维：告警、worker、进程、程序日志、`/jobs` 原文 |
 
 ### 总览第一屏
 
@@ -109,6 +110,7 @@ promtool test rules deploy/prometheus/rules.test.yml
 | `volkovlabs-echarts-panel` | 状态分布、进度环、拓扑 |
 | `marcusolsson-dynamictext-panel` | 标题时钟、即将同步 |
 | `tim012432-calendarheatmap-panel` | 每日同步、每日失败 |
+| `yesoreyeram-infinity-datasource` | 运维看板的 `/jobs` 原文 |
 
 compose 已通过 `GF_PLUGINS_PREINSTALL_SYNC` 装好；其余全是内置面板。导入别的 Grafana 时先装插件，再在顶部选上自己的 Prometheus、Loki 或 InfluxDB。
 
