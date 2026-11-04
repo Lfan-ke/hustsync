@@ -69,6 +69,7 @@ promtool test rules deploy/prometheus/rules.test.yml
 | 看板 | 文件 | 用途 |
 |:--:|:--:|:--:|
 | 总览 | `hustsync.json` | 第一屏看全局，往下是各个分项的细节 |
+| 镜像 | `hustsync-mirrors.json` | 只看镜像：需要关注、一览、状态、耗时、同步日志 |
 
 ### 总览第一屏
 
