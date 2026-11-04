@@ -27,3 +27,6 @@ workspace = true
 [features]
 metrics = ["dep:prometheus", "dep:hustsync-config-parser"]
 p8s = ["metrics"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.31.2", features = ["resource"] }
