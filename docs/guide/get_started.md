@@ -81,3 +81,12 @@ Logs go in `log_dir`, one timestamped file per sync, with `latest` pointing at t
 
 - Keys: [configs.md](configs.md)
 - Production deployment: [deploy.md](deploy.md)
+- Metrics: [metrics.md](metrics.md)
+- Alerts: [alert.md](alert.md)
+- Monitoring stack and boards: [monitoring.md](monitoring.md)
+- Containers: [docker.md](docker.md)
+- Resource isolation: [cgroup.md](cgroup.md)
+- ZFS and Btrfs snapshots: [snapshot.md](snapshot.md)
+- fpsync and lsyncd: [tools.md](tools.md)
+- ftpsync: [ftpsync.md](ftpsync.md)
+- Windows: [windows.md](windows.md)
