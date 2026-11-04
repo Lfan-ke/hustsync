@@ -81,3 +81,12 @@ hustsynctl workers -p 14242
 
 - 字段说明：[configs.md](configs.md)
 - 生产部署：[deploy.md](deploy.md)
+- 指标：[metrics.md](metrics.md)
+- 告警：[alert.md](alert.md)
+- 监控栈与看板：[monitoring.md](monitoring.md)
+- 容器内同步：[docker.md](docker.md)
+- 资源隔离：[cgroup.md](cgroup.md)
+- ZFS 与 Btrfs 快照：[snapshot.md](snapshot.md)
+- fpsync 与 lsyncd：[tools.md](tools.md)
+- ftpsync：[ftpsync.md](ftpsync.md)
+- Windows：[windows.md](windows.md)

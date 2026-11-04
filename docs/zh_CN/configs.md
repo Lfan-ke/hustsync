@@ -23,6 +23,8 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 |:--:|:--:|:--:|
 | `name` | 空 | worker 名，manager 以它区分 worker |
 | `log_dir` | `/tmp/hustsync/log/{{.Name}}` | 日志目录，`{{.Name}}` 替换为镜像名 |
+| `log_retention` | 10 | 每个镜像保留的日志文件数，含本次 |
+| `log_gzip` | `false` | 轮转时把保留的旧日志压成 `.gz` |
 | `mirror_dir` | `/tmp/hustsync` | 镜像数据根目录，镜像目录为 `mirror_dir/mirror_subdir/镜像名` |
 | `concurrent` | 10 | 同时同步的镜像数 |
 | `interval` | 120 | 同步间隔，分钟 |
@@ -41,6 +43,7 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | `api_base_list` | 无 | 多个 manager；状态同时上报给每一个，启动时从第一个读取历史状态 |
 | `token` | 空 | 注册时携带 |
 | `ca_cert` | 空 | 访问 HTTPS manager 时信任的 CA |
+| `heartbeat` | 无 | 每隔多少秒重新注册一次，见 [alert.md](alert.md) |
 
 ### server
 
@@ -48,14 +51,76 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 |:--:|:--:|:--:|
 | `hostname` | `localhost` | manager 回连 worker 用的主机名 |
 | `listen_addr` | `127.0.0.1` | 控制端口监听地址 |
-| `listen_port` | 6000 | 控制端口 |
+| `listen_port` | 6000 | 控制端口，也提供 `/metrics` |
 | `ssl_cert` `ssl_key` | 空 | 都不为空时启用 HTTPS |
+
+### docker
+
+| 字段 | 默认值 | 说明 |
+|:--:|:--:|:--:|
+| `enable` | false | 打开后，设置了 `docker_image` 的镜像在容器内同步 |
+| `volumes` | 无 | 所有容器都挂载的卷，`宿主路径:容器路径[:ro]` |
+| `options` | 无 | 追加给所有 `docker run` 的参数 |
+
+详见 [docker.md](docker.md)。
+
+### cgroup
+
+| 字段 | 默认值 | 说明 |
+|:--:|:--:|:--:|
+| `enable` | false | 每个镜像在自己的 cgroup 里同步 |
+| `base_path` | `/sys/fs/cgroup` | cgroupfs 挂载点 |
+| `group` | 空 | 父组；空表示 worker 自己所在的组 |
+
+详见 [cgroup.md](cgroup.md)。
+
+### zfs
+
+| 字段 | 默认值 | 说明 |
+|:--:|:--:|:--:|
+| `enable` | false | 每个镜像的工作目录必须是独立的 ZFS 数据集 |
+| `zpool` | 无 | 镜像数据集所在的池或父数据集；开启时必填 |
+
+### btrfs_snapshot
+
+| 字段 | 默认值 | 说明 |
+|:--:|:--:|:--:|
+| `enable` | false | 工作目录是 Btrfs 子卷，每次同步成功后更新快照 |
+| `snapshot_path` | 无 | 快照目录，每个镜像一份，以镜像名命名 |
+
+两项都只在 Linux 上可用，详见 [snapshot.md](snapshot.md)。
 
 ### include
 
 | 字段 | 说明 |
 |:--:|:--:|
 | `include_mirrors` | glob，匹配到的每个文件里的 `[[mirrors]]` 追加进来 |
+
+## 日志
+
+manager 与 worker 都可加 `[log]` 表，在命令行选定的终端或 `--log-file` 之外再开输出端，由 [serlog](https://github.com/LeoHeco/ServerLog) 写出。
+
+| 字段 | 说明 |
+|:--:|:--:|
+| `filter` | 过滤指令，如 `info,hustsync_worker=debug`；设了 `RUST_LOG` 时不生效 |
+| `sinks` | 输出端列表，键见 serlog 规格，如 `file`、`loki`、`mail` |
+
+```toml
+[log]
+filter = "info"
+sinks = [
+  { kind = "loki", url = "http://alloy:3100/loki/api/v1/push", labels = { site = "hust" } },
+  { kind = "file", path = "/var/log/hustsync/worker.json", format = "json", max_size = "64MiB", keep = 7 },
+]
+```
+
+## 告警
+
+manager 的 `[alert]` 设连续失败多少轮发告警，worker 的 `[manager] heartbeat` 设心跳间隔，详见 [alert.md](alert.md)。
+
+## 指标
+
+manager 与 worker 都可加 `[metrics]`：`cache` 设各组的缓存秒数，`[[metrics.push]]` 每项一个推送目标，详见 [metrics.md](metrics.md)。
 
 ## 镜像
 
@@ -66,9 +131,11 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | 字段 | 默认值 | 说明 |
 |:--:|:--:|:--:|
 | `name` | 必填 | 镜像名 |
-| `provider` | `rsync` | `rsync`、`two-stage-rsync`、`command` |
+| `provider` | `rsync` | `rsync`、`two-stage-rsync`、`command`、`fpsync`、`lsyncd`、`ftpsync` |
 | `upstream` | 空 | 上游地址；rsync 类必须以 `/` 结尾 |
 | `interval` `retry` `timeout` | 取 global | 同 global |
+| `cron` | 无 | 按 cron 表达式排期，如 `0 */6 * * *`，取代 `interval`；本地时区 |
+| `log_retention` `log_gzip` | 取 global | 同 global |
 | `mirror_dir` | 无 | 直接指定镜像目录，忽略 `mirror_subdir` |
 | `mirror_subdir` | 无 | 镜像目录的中间一级 |
 | `log_dir` | 取 global | 同 global |
@@ -77,6 +144,8 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | `exec_on_success` `exec_on_failure` | 取 global | 替换 global 的设置 |
 | `exec_on_success_extra` `exec_on_failure_extra` | 无 | 追加在 global 的设置之后 |
 | `success_exit_codes` | 无 | 额外视为成功的退出码 |
+| `memory_limit` | 无 | 内存上限，如 `256M`；只在 docker 或 cgroup 下生效 |
+| `snapshot_path` | `[btrfs_snapshot]` 的目录加镜像名 | 本镜像的快照路径；子镜像不继承 |
 
 同步进程可读到 `HUSTSYNC_MIRROR_NAME`、`HUSTSYNC_WORKING_DIR`、`HUSTSYNC_UPSTREAM_URL`、`HUSTSYNC_LOG_DIR`、`HUSTSYNC_LOG_FILE`，以及同值的 `TUNASYNC_*`。
 
@@ -104,6 +173,15 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | `fail_on_match` | 日志命中该正则即视为失败 |
 | `size_pattern` | 从日志里取镜像大小的正则，取最后一次匹配的第一个分组 |
 
+### docker、fpsync、lsyncd、ftpsync
+
+| 字段 | 说明 |
+|:--:|:--:|
+| `docker_image` | 容器镜像，见 [docker.md](docker.md) |
+| `docker_volumes` `docker_options` | 追加在 `[docker]` 的设置之后 |
+| `fpsync_options` `lsyncd_options` | 原样传给 fpsync、lsyncd，见 [tools.md](tools.md) |
+| `ftpsync_conf` | 追加到生成的 ftpsync 配置末尾的行，见 [ftpsync.md](ftpsync.md) |
+
 ## 与 tunasync 的差异
 
 | 项 | tunasync | hustsync |
@@ -111,3 +189,11 @@ manager 与 worker 各读一个 TOML 文件。字段名与 tunasync 一致，tun
 | 数据库 | bolt、badger、leveldb、redis | redb、redis |
 | 未知字段 | 忽略 | 报错，防止拼错的字段悄悄失效 |
 | 环境变量 | `TUNASYNC_*` | `HUSTSYNC_*`，同时提供同值的 `TUNASYNC_*` |
+| docker 容器名 | `tunasync-job-镜像名` | `hustsync-job-镜像名` |
+| 超出 `memory_limit` | 普通失败 | 上报为 OOM |
+| 新 provider | 无 | `fpsync`、`lsyncd`、`ftpsync` |
+| 排期 | 只有 `interval` | 另可用 `cron` |
+| 日志份数 | 固定 10 | `log_retention` 可调 |
+| 旧日志压缩 | 无 | `log_gzip` |
+| ZFS 检查 | 只查是否挂载点 | 还查挂的是不是 ZFS |
+| Btrfs 快照更新 | 先删旧快照再建新快照，中间发布路径为空 | 新快照建好后一次 `rename` 换上 |
