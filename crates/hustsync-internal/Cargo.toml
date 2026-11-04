@@ -17,7 +17,13 @@ tracing-subscriber = { version = "0.3.20", features = [
     "local-time",
     "time",
 ] }
+hustsync-config-parser = { path = "../hustsync-config-parser", optional = true }
+prometheus = { version = "0.14", default-features = false, features = ["process"], optional = true }
 
 
 [lints]
 workspace = true
+
+[features]
+metrics = ["dep:prometheus", "dep:hustsync-config-parser"]
+p8s = ["metrics"]
