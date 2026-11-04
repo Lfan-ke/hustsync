@@ -90,6 +90,7 @@ fn worker_config(
             ca_cert: None,
         }),
         cgroup: None,
+        docker: None,
         server: Some(WorkerServerConfig {
             hostname: Some("127.0.0.1".into()),
             // Bind worker on a fixed port — no ephemeral here because
@@ -133,6 +134,9 @@ fn worker_config(
             stage1_profile: None,
             cron: None,
             memory_limit: None,
+            docker_image: None,
+            docker_volumes: None,
+            docker_options: None,
             success_exit_codes: None,
             rsync_success_exit_codes: None,
             mirrors: None,
