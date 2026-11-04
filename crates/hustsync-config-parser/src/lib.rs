@@ -13,7 +13,7 @@ mod mem;
 mod metrics;
 
 pub use mem::MemBytes;
-pub use metrics::MetricsConfig;
+pub use metrics::{MetricsConfig, PushConfig};
 /// Typed error returned by every public entry-point in this crate.
 ///
 /// Variants carry enough context for callers to produce actionable
