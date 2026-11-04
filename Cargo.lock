@@ -874,6 +874,7 @@ dependencies = [
  "hustsync-internal",
  "hustsync-worker",
  "once_cell",
+ "parse-size",
  "rcgen",
  "redb",
  "redis",
