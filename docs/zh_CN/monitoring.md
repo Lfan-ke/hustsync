@@ -71,6 +71,7 @@ promtool test rules deploy/prometheus/rules.test.yml
 | 总览 | `hustsync.json` | 第一屏看全局，往下是各个分项的细节 |
 | 镜像 | `hustsync-mirrors.json` | 只看镜像：需要关注、一览、状态、耗时、同步日志 |
 | 运维 | `hustsync-ops.json` | 只看运维：告警、worker、进程、程序日志、`/jobs` 原文 |
+| InfluxDB | `hustsync-influx.json` | 只有 Telegraf 与 InfluxDB 时用 |
 
 ### 总览第一屏
 
@@ -104,6 +105,10 @@ promtool test rules deploy/prometheus/rules.test.yml
 | 日志 | 程序日志量、程序日志、告警事件、同步日志 | 柱状、日志 |
 
 程序日志由 hustsync 经 `[log]` 里的 loki 输出端直接推送；同步日志是 hustsync 写在 `log_dir` 下的文件，由 Alloy 读取。
+
+### InfluxDB
+
+数据来自 Telegraf 写进的 InfluxDB，用 InfluxQL 查询：总览数字、镜像一览、状态、状态分布、同步次数、最大的镜像与并发。
 
 ### 插件
 
