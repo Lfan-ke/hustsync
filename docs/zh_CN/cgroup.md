@@ -56,3 +56,9 @@ cgcreate -t hustsync -a hustsync -g memory:hustsync
 ```bash
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER='sudo -E'   cargo test -p hustsync-worker --test cgroup_root -- --ignored --test-threads=1
 ```
+
+v1 在 qemu 中测试，脚本自动下载 Ubuntu 24.04 的内核：
+
+```bash
+scripts/cgroup-v1-qemu.sh
+```
