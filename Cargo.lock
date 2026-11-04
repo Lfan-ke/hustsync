@@ -1065,6 +1065,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "hustsync-config-parser",
+ "nix",
  "prometheus",
  "regex",
  "reqwest",
