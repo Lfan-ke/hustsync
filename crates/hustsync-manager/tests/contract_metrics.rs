@@ -1,4 +1,4 @@
-//! `GET /metrics` and `/metrics/<group>`: sync counters, mirror gauges, live worker probes and caching.
+//! `GET /metrics` and `/metrics/<group>`: sync counters, mirror gauges, live worker probes, caching and pushes.
 
 #![cfg(feature = "p8s")]
 
@@ -162,6 +162,7 @@ async fn unknown_groups_are_404_with_the_list() -> Res {
 async fn cached_groups_stay_until_they_expire() -> Res {
     let cfg = MetricsConfig {
         cache: [("mirrors".into(), 3600)].into(),
+        ..MetricsConfig::default()
     };
     let (mgr, _dir) = contract::manager_with(Some(cfg));
     let app = mgr.make_router();
@@ -179,6 +180,7 @@ async fn cached_groups_stay_until_they_expire() -> Res {
 fn unknown_cache_groups_stop_the_manager() -> Res {
     let cfg = MetricsConfig {
         cache: [("mirror".into(), 10)].into(),
+        ..MetricsConfig::default()
     };
     let dir = tempfile::TempDir::new()?;
     let err = Manager::new(contract::config(&dir.path().join("t.db"), Some(cfg)))
@@ -187,6 +189,71 @@ fn unknown_cache_groups_stop_the_manager() -> Res {
     assert!(
         err.to_string().contains("unknown metric group `mirror`"),
         "{err}"
+    );
+    Ok(())
+}
+
+#[cfg(feature = "influx")]
+#[tokio::test]
+async fn pushes_reach_the_target_as_line_protocol() -> Res {
+    use std::{sync::Arc, time::Duration};
+
+    use axum::{http::HeaderMap, routing::post as on_post};
+    use hustsync_config_parser::PushConfig;
+    use tokio::sync::mpsc;
+
+    let (tx, mut rx) = mpsc::channel::<(Option<String>, String)>(4);
+    let sink = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let url = format!("http://{}/telegraf", sink.local_addr()?);
+    let recv = Router::new().route(
+        "/telegraf",
+        on_post(move |headers: HeaderMap, body: String| {
+            let tx = tx.clone();
+            async move {
+                let auth = headers
+                    .get(header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::to_owned);
+                let _ = tx.send((auth, body)).await;
+                StatusCode::NO_CONTENT
+            }
+        }),
+    );
+    tokio::spawn(axum::serve(sink, recv).into_future());
+
+    let cfg = MetricsConfig {
+        cache: Default::default(),
+        push: vec![PushConfig {
+            url,
+            interval: 1,
+            groups: Some(vec!["mirrors".into(), "syncs".into()]),
+            headers: [("Authorization".into(), "Token t".into())].into(),
+        }],
+    };
+    let (mgr, _dir) = contract::manager_with(Some(cfg));
+    let app = Arc::clone(&mgr).make_router();
+    report(&app, "w1", "m1", "success").await?;
+    let run = tokio::spawn(Arc::clone(&mgr).run(std::future::pending()));
+
+    let (auth, body) = tokio::time::timeout(Duration::from_secs(10), rx.recv())
+        .await?
+        .ok_or("push channel closed")?;
+    run.abort();
+    assert_eq!(auth.as_deref(), Some("Token t"));
+    let lines: Vec<_> = body
+        .lines()
+        .filter_map(|l| l.rsplit_once(' ').map(|(head, _)| head))
+        .collect();
+    for want in [
+        "prometheus,status=success hustsync_mirrors=1",
+        "prometheus,mirror=m1,worker=w1 hustsync_mirror_state=2",
+        "prometheus,mirror=m1,result=success,worker=w1 hustsync_syncs_total=1",
+    ] {
+        assert!(lines.contains(&want), "missing `{want}` in\n{body}");
+    }
+    assert!(
+        !body.contains("hustsync_workers"),
+        "workers were not asked for:\n{body}"
     );
     Ok(())
 }
