@@ -79,6 +79,7 @@ async fn unknown_groups_are_404() -> Res {
 async fn cached_jobs_keep_their_values() -> Res {
     let cfg = MetricsConfig {
         cache: [("jobs".into(), 3600)].into(),
+        ..MetricsConfig::default()
     };
     let semaphore = Arc::new(Semaphore::new(3));
     let s = state(Arc::clone(&semaphore), Metrics::new(Some(&cfg))?);

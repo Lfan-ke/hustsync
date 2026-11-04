@@ -1,5 +1,10 @@
 //! Metrics split into named groups, gathered on demand and cached per group.
 
+#[cfg(feature = "influx")]
+pub mod influx;
+#[cfg(feature = "push")]
+pub mod push;
+
 use std::{
     collections::HashMap,
     error::Error,

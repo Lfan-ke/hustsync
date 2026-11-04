@@ -1,19 +1,20 @@
 # 指标
 
-manager 与 worker 都输出 p8s 格式的指标，可被 Prometheus 或 Telegraf 拉取。
+manager 与 worker 都输出 p8s 格式的指标，可被 Prometheus 或 Telegraf 拉取，也可主动推给 Telegraf 或 InfluxDB。
 
 ## 编译开关
 
 | feature | 内容 | 默认 |
 |:--:|:--:|:--:|
 | `p8s` | `GET /metrics`、`/metrics/all`、`/metrics/<组>` | 开 |
+| `influx` | 按 InfluxDB 行协议推送 | 开 |
 
 ```bash
 cargo build --release
 cargo build --release --no-default-features
 ```
 
-关掉时不编入指标代码。配置里写了 `[metrics]`，启动时报错。
+都关时不编入指标代码。配置里用了未编入的方式，启动时报错。
 
 ## 接口
 
@@ -73,8 +74,30 @@ manager 与 worker 写法相同：
 ```toml
 [metrics]
 cache = { mirrors = 10, workers = 30 }
+
+[[metrics.push]]
+url = "http://telegraf:8186/telegraf"
+interval = 30
+groups = ["mirrors", "workers", "syncs"]
 ```
 
 | 键 | 默认 | 说明 |
 |:--:|:--:|:--:|
 | `cache` | 空 | 组名到秒数；没写的组每次请求都现算 |
+| `push.url` | 必填 | 收端地址 |
+| `push.interval` | 30 | 秒 |
+| `push.groups` | 全部 | 推哪些组 |
+| `push.headers` | 空 | 附加请求头，如 InfluxDB 的 `Authorization = "Token …"` |
+
+推送失败只在转坏时记一条 warn，恢复时记一条 info。
+
+## 收端
+
+| 收端 | 配置 |
+|:--:|:--:|
+| Prometheus | 照上面的 `scrape_configs` 拉取 |
+| Telegraf 拉取 | `inputs.prometheus`，`metric_version = 2` |
+| Telegraf 推送 | `inputs.http_listener_v2`，`data_format = "influx"`；输出与拉取逐行相同 |
+| InfluxDB | `url` 写 `/api/v2/write?org=…&bucket=…`，令牌放 `headers` |
+
+行协议照 Telegraf 1.40 `inputs.prometheus` 的 `metric_version = 2` 生成：度量名为 `prometheus`，标签按键排序，字段名即指标名，直方图拆成 `_count`、`_sum` 一行与每个桶一行。
