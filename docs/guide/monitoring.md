@@ -70,6 +70,7 @@ The boards load with Grafana into the hustsync folder, refresh every 5 minutes b
 |:--:|:--:|:--:|
 | Overview | `hustsync.json` | The first screen shows everything; details follow below |
 | Mirrors | `hustsync-mirrors.json` | Mirrors only: needs attention, overview, status, durations, sync logs |
+| Operations | `hustsync-ops.json` | Operations only: alerts, workers, processes, program logs, raw `/jobs` |
 
 ### Overview, first screen
 
@@ -112,6 +113,7 @@ Program logs are pushed by hustsync through the loki sink in `[log]`; sync logs 
 | `volkovlabs-echarts-panel` | Status breakdown, progress rings, topology |
 | `marcusolsson-dynamictext-panel` | Title clock, coming up |
 | `tim012432-calendarheatmap-panel` | Daily syncs, daily failures |
+| `yesoreyeram-infinity-datasource` | Raw `/jobs` on the operations board |
 
 Compose installs them through `GF_PLUGINS_PREINSTALL_SYNC`; every other panel is built in. When importing into another Grafana, install the plugins first, then pick your own Prometheus, Loki or InfluxDB at the top.
 
