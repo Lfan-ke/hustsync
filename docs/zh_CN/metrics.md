@@ -41,12 +41,20 @@ scrape_configs:
 | 组 | 指标 | 含义 |
 |:--:|:--:|:--:|
 | `mirrors` | `hustsync_mirrors{status}` | 各状态的镜像数，求和即镜像总数 |
+| | `hustsync_mirror_state{mirror,worker}` | 0 无、1 失败、2 成功、3 同步中、4 准备同步、5 暂停、6 禁用 |
+| | `hustsync_mirror_info{mirror,worker,upstream,role}` | 恒为 1，带上游与主从 |
+| | `hustsync_mirror_size_bytes{mirror,worker}` | 镜像体积 |
 | | `hustsync_mirror_sync_duration_seconds{mirror,worker}` | 上次同步用时 |
 | | `hustsync_mirror_last_success_timestamp_seconds{mirror,worker}` | 上次成功的时间 |
+| | `hustsync_mirror_next_sync_timestamp_seconds{mirror,worker}` | 下次同步的时间 |
 | `workers` | `hustsync_workers` | 已注册的 worker 数 |
 | | `hustsync_workers_online` `hustsync_worker_up{worker}` | 抓取时探测，2 秒内有响应即在线 |
+| | `hustsync_worker_last_online_timestamp_seconds{worker}` | worker 上次联系 manager 的时间 |
 | `syncs` | `hustsync_syncs_total{mirror,worker,result}` | 成功、失败的同步次数 |
+| | `hustsync_sync_duration_seconds{worker,result}` | 同步用时的直方图，桶从 1 秒到 1 天 |
 | `process` | `hustsync_build_info{version}` 与 `process_*` | 版本；Linux 上另有 CPU、内存、文件句柄、线程数 |
+
+体积取自状态里的 `size`：`K`、`M`、`G`、`T` 按 1000 进位，与 rsync `-h` 一致；`KiB` 等按 1024 进位；`unknown` 不出这一行。
 
 ## worker
 
