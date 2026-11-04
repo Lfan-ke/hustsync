@@ -14,7 +14,7 @@ mod metrics;
 
 pub use croner::Cron;
 pub use mem::MemBytes;
-pub use metrics::{MetricsConfig, PushConfig};
+pub use metrics::{MetricsConfig, PushConfig, PushFormat};
 
 /// Typed error returned by every public entry-point in this crate.
 ///
