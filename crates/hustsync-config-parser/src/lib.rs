@@ -16,7 +16,7 @@ mod snapshot;
 pub use alert::AlertConfig;
 pub use croner::Cron;
 pub use mem::MemBytes;
-pub use snapshot::WorkerZfsConfig;
+pub use snapshot::{WorkerBtrfsSnapshotConfig, WorkerZfsConfig};
 
 /// Typed error returned by every public entry-point in this crate.
 ///
@@ -139,6 +139,7 @@ pub struct WorkerConfig {
     pub cgroup: Option<WorkerCgroupConfig>,
     pub docker: Option<WorkerDockerConfig>,
     pub zfs: Option<WorkerZfsConfig>,
+    pub btrfs_snapshot: Option<WorkerBtrfsSnapshotConfig>,
     pub server: Option<WorkerServerConfig>,
     pub mirrors: Option<Vec<MirrorConfig>>,
     pub include: Option<IncludeConfig>,
@@ -156,6 +157,7 @@ impl Default for WorkerConfig {
             cgroup: Some(WorkerCgroupConfig::default()),
             docker: None,
             zfs: None,
+            btrfs_snapshot: None,
             server: Some(WorkerServerConfig::default()),
             mirrors: Some(vec![MirrorConfig::default()]),
             include: None,
@@ -323,6 +325,8 @@ pub struct MirrorConfig {
     pub docker_image: Option<String>,
     pub docker_volumes: Option<Vec<String>>,
     pub docker_options: Option<Vec<String>>,
+    /// Where `[btrfs_snapshot]` puts this mirror's snapshot; not inherited, as children sharing it would overwrite each other.
+    pub snapshot_path: Option<String>,
     pub fpsync_options: Option<Vec<String>>,
     pub lsyncd_options: Option<Vec<String>>,
     pub ftpsync_conf: Option<Vec<String>>,
@@ -381,6 +385,7 @@ impl Default for MirrorConfig {
             docker_image: None,
             docker_volumes: None,
             docker_options: None,
+            snapshot_path: None,
             fpsync_options: None,
             lsyncd_options: None,
             ftpsync_conf: None,
@@ -434,6 +439,7 @@ struct LenientWorkerConfig {
     cgroup: Option<WorkerCgroupConfig>,
     docker: Option<WorkerDockerConfig>,
     zfs: Option<WorkerZfsConfig>,
+    btrfs_snapshot: Option<WorkerBtrfsSnapshotConfig>,
     server: Option<WorkerServerConfig>,
     mirrors: Option<Vec<LenientMirrorConfig>>,
     include: Option<IncludeConfig>,
@@ -481,6 +487,7 @@ struct LenientMirrorConfig {
     docker_image: Option<String>,
     docker_volumes: Option<Vec<String>>,
     docker_options: Option<Vec<String>>,
+    snapshot_path: Option<String>,
     fpsync_options: Option<Vec<String>>,
     lsyncd_options: Option<Vec<String>>,
     ftpsync_conf: Option<Vec<String>>,
@@ -526,6 +533,7 @@ impl From<LenientMirrorConfig> for MirrorConfig {
             docker_image: l.docker_image,
             docker_volumes: l.docker_volumes,
             docker_options: l.docker_options,
+            snapshot_path: l.snapshot_path,
             fpsync_options: l.fpsync_options,
             lsyncd_options: l.lsyncd_options,
             ftpsync_conf: l.ftpsync_conf,
@@ -546,6 +554,7 @@ impl From<LenientWorkerConfig> for WorkerConfig {
             cgroup: l.cgroup,
             docker: l.docker,
             zfs: l.zfs,
+            btrfs_snapshot: l.btrfs_snapshot,
             server: l.server,
             mirrors: l
                 .mirrors
