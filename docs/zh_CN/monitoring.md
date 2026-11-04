@@ -13,7 +13,7 @@ docker compose --profile monitoring up -d
 |:--:|:--:|:--:|
 | Prometheus 3.15 | `deploy/prometheus/prometheus.yml` | 各组按各自的间隔抓取：镜像状态 15 秒，同步计数 30 秒，worker 与进程 1 分钟 |
 | 告警规则 | `deploy/prometheus/rules.yml` | 见下表 |
-| Alloy 1.20 | `deploy/alloy/config.alloy` | 3100 端口收 serlog 推来的程序日志；读各镜像 `log_dir` 下的同步日志，从文件名取镜像名 |
+| Alloy 1.20 | `deploy/alloy/config.alloy` | 3100 端口收 serlog 推来的程序日志；读各镜像 `log_dir` 下的同步日志，从文件名取镜像名；4318 端口收 OTLP 指标转给 Prometheus |
 | Loki 3.7 | 镜像自带配置 | 存日志 |
 | Telegraf 1.40 | `deploy/telegraf/telegraf.conf` | 拉取各组，也在 8186 端口收推送，写进 InfluxDB |
 | InfluxDB 3 Core | compose | 只在 compose 网络内可达；单次查询最多读 432 个 Parquet 文件，约五天的数据，查更久要加 `--query-file-limit` |
