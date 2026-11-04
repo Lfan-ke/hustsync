@@ -225,6 +225,7 @@ async fn pushes_reach_the_target_as_line_protocol() -> Res {
         cache: Default::default(),
         push: vec![PushConfig {
             url,
+            format: Default::default(),
             interval: 1,
             groups: Some(vec!["mirrors".into(), "syncs".into()]),
             headers: [("Authorization".into(), "Token t".into())].into(),

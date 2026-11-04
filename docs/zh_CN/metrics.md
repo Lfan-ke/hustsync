@@ -1,6 +1,6 @@
 # 指标
 
-manager 与 worker 都输出 p8s 格式的指标，可被 Prometheus 或 Telegraf 拉取，也可主动推给 Telegraf 或 InfluxDB。
+manager 与 worker 都输出 p8s 格式的指标，可被 Prometheus 或 Telegraf 拉取，也可主动推给 Telegraf、InfluxDB 或 Alloy。
 
 ## 编译开关
 
@@ -8,13 +8,15 @@ manager 与 worker 都输出 p8s 格式的指标，可被 Prometheus 或 Telegra
 |:--:|:--:|:--:|
 | `p8s` | `GET /metrics`、`/metrics/all`、`/metrics/<组>` | 开 |
 | `influx` | 按 InfluxDB 行协议推送 | 开 |
+| `otlp` | 按 OTLP/HTTP protobuf 推送 | 关 |
 
 ```bash
 cargo build --release
+cargo build --release --features otlp
 cargo build --release --no-default-features
 ```
 
-都关时不编入指标代码。配置里用了未编入的方式，启动时报错。
+三个都关时不编入指标代码。配置里用了未编入的方式，启动时报错。
 
 ## 接口
 
@@ -79,12 +81,17 @@ cache = { mirrors = 10, workers = 30 }
 url = "http://telegraf:8186/telegraf"
 interval = 30
 groups = ["mirrors", "workers", "syncs"]
+
+[[metrics.push]]
+url = "http://alloy:4318/v1/metrics"
+format = "otlp"
 ```
 
 | 键 | 默认 | 说明 |
 |:--:|:--:|:--:|
 | `cache` | 空 | 组名到秒数；没写的组每次请求都现算 |
 | `push.url` | 必填 | 收端地址 |
+| `push.format` | `influx` | `influx` 或 `otlp` |
 | `push.interval` | 30 | 秒 |
 | `push.groups` | 全部 | 推哪些组 |
 | `push.headers` | 空 | 附加请求头，如 InfluxDB 的 `Authorization = "Token …"` |
@@ -99,5 +106,6 @@ groups = ["mirrors", "workers", "syncs"]
 | Telegraf 拉取 | `inputs.prometheus`，`metric_version = 2` |
 | Telegraf 推送 | `inputs.http_listener_v2`，`data_format = "influx"`；输出与拉取逐行相同 |
 | InfluxDB | `url` 写 `/api/v2/write?org=…&bucket=…`，令牌放 `headers` |
+| Alloy | `otelcol.receiver.otlp` 的 `http`；经 `otelcol.exporter.prometheus` 写进 Prometheus 后，指标名与拉取时相同，`job` 为 `hustsync-manager` 或 `hustsync-worker`，`instance` 为 manager 地址或 worker 名 |
 
 行协议照 Telegraf 1.40 `inputs.prometheus` 的 `metric_version = 2` 生成：度量名为 `prometheus`，标签按键排序，字段名即指标名，直方图拆成 `_count`、`_sum` 一行与每个桶一行。

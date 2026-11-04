@@ -2,6 +2,8 @@
 
 #[cfg(feature = "influx")]
 pub mod influx;
+#[cfg(feature = "otlp")]
+pub mod otlp;
 #[cfg(feature = "push")]
 pub mod push;
 
