@@ -71,6 +71,7 @@ The boards load with Grafana into the hustsync folder, refresh every 5 minutes b
 | Overview | `hustsync.json` | The first screen shows everything; details follow below |
 | Mirrors | `hustsync-mirrors.json` | Mirrors only: needs attention, overview, status, durations, sync logs |
 | Operations | `hustsync-ops.json` | Operations only: alerts, workers, processes, program logs, raw `/jobs` |
+| InfluxDB | `hustsync-influx.json` | For sites with only Telegraf and InfluxDB |
 
 ### Overview, first screen
 
@@ -104,6 +105,10 @@ Fits one 1920×1080 screen:
 | Logs | Program log volume, program logs, alert events, sync logs | Bars and logs |
 
 Program logs are pushed by hustsync through the loki sink in `[log]`; sync logs are the files hustsync writes in `log_dir`, read by Alloy.
+
+### InfluxDB
+
+Data comes from what Telegraf writes to InfluxDB, queried with InfluxQL: overview numbers, all mirrors, status, status breakdown, syncs, the largest mirrors and concurrency.
 
 ### Plugins
 
