@@ -15,6 +15,8 @@ docker compose --profile monitoring up -d
 | 告警规则 | `deploy/prometheus/rules.yml` | 见下表 |
 | Alloy 1.20 | `deploy/alloy/config.alloy` | 3100 端口收 serlog 推来的程序日志；读各镜像 `log_dir` 下的同步日志，从文件名取镜像名 |
 | Loki 3.7 | 镜像自带配置 | 存日志 |
+| Telegraf 1.40 | `deploy/telegraf/telegraf.conf` | 拉取各组，也在 8186 端口收推送，写进 InfluxDB |
+| InfluxDB 3 Core | compose | 只在 compose 网络内可达；单次查询最多读 432 个 Parquet 文件，约五天的数据，查更久要加 `--query-file-limit` |
 
 manager 与 worker 的 `[log]` 已配好推给 Alloy，`on_fail = "ignore"`，不起 `monitoring` 时日志照常写控制台，推不出去的静默丢弃。
 
@@ -43,3 +45,4 @@ promtool test rules deploy/prometheus/rules.test.yml
 |:--:|:--:|
 | Prometheus | 照 `prometheus.yml` 改 `targets` |
 | Alloy | 把 `config.alloy` 里的 `/var/log/hustsync` 换成 worker 的 `log_dir` |
+| Telegraf | 改 `urls` 与输出 |
