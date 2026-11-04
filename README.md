@@ -16,6 +16,8 @@ The Rust implementation currently covers the core manager, worker, and control C
 
 Some Go-only worker features are not implemented yet, including Docker wrapping, cgroup enforcement, ZFS hooks, and btrfs snapshot hooks. Treat `tunasync` as the compatibility reference when porting or validating behavior.
 
+Deployment guides in Chinese live in [`docs/zh_CN`](docs/zh_CN/get_started.md); a ready-to-run Docker Compose setup lives in [`deploy/compose`](deploy/compose).
+
 ## Architecture & Project Structure
 
 The project is organized as a Cargo workspace with the following core crates:
