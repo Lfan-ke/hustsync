@@ -22,3 +22,12 @@ datasources:
     url: http://manager:14242
     jsonData:
       allowedHosts: ["http://manager:14242"]
+
+  - name: InfluxDB
+    uid: hustsync-influx
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8181
+    jsonData:
+      dbName: hustsync
+      httpMode: GET
