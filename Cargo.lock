@@ -973,6 +973,7 @@ dependencies = [
  "hustsync-config-parser",
  "hustsync-internal",
  "nix",
+ "prometheus",
  "regex",
  "reqwest",
  "serde",
