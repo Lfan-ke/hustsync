@@ -13,6 +13,10 @@ docker compose --profile monitoring up -d
 |:--:|:--:|:--:|
 | Prometheus 3.15 | `deploy/prometheus/prometheus.yml` | 各组按各自的间隔抓取：镜像状态 15 秒，同步计数 30 秒，worker 与进程 1 分钟 |
 | 告警规则 | `deploy/prometheus/rules.yml` | 见下表 |
+| Alloy 1.20 | `deploy/alloy/config.alloy` | 3100 端口收 serlog 推来的程序日志；读各镜像 `log_dir` 下的同步日志，从文件名取镜像名 |
+| Loki 3.7 | 镜像自带配置 | 存日志 |
+
+manager 与 worker 的 `[log]` 已配好推给 Alloy，`on_fail = "ignore"`，不起 `monitoring` 时日志照常写控制台，推不出去的静默丢弃。
 
 ## 告警规则
 
@@ -38,3 +42,4 @@ promtool test rules deploy/prometheus/rules.test.yml
 | 组件 | 做法 |
 |:--:|:--:|
 | Prometheus | 照 `prometheus.yml` 改 `targets` |
+| Alloy | 把 `config.alloy` 里的 `/var/log/hustsync` 换成 worker 的 `log_dir` |
